@@ -1,9 +1,6 @@
 # Mercury
 
-**Speech recognition in pure Rust.** OpenAI Whisper on
-[candle](https://github.com/huggingface/candle) — own mel front-end, own
-tokenizer grammar, own decode loop, own audio encoder, and hand-written AVX2
-kernels. No Python runtime, no C/C++ by default.
+**Speech recognition in pure Rust.** No Python runtime, no C/C++ by default. Hand written encoder and decoder kernals.
 
 Mercury is the voice component of [FFai](https://github.com/Remade-With-Rust/FFai),
 published as a standalone crate so you can use ASR without the rest of the
