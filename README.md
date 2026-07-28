@@ -1,6 +1,6 @@
 # Mercury
 
-**Speech recognition in pure Rust.** No Python runtime, no C/C++ by default. Hand written encoder and decoder kernals.
+**Embedded speech recognition in pure Rust.** Reimagined from Whisper.cpp with no Python runtime, no C/C++ by default. Built for edge, browser, embedded applications that require low memory and compute requirements.
 
 Mercury is the voice component of [FFai](https://github.com/Remade-With-Rust/FFai),
 published as a standalone crate so you can use ASR without the rest of the
