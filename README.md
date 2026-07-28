@@ -8,7 +8,7 @@ toolkit. Part of [Remade With Rust](https://github.com/Remade-With-Rust).
 
 ```toml
 [dependencies]
-ffai-mercury = "0.2"
+ffai-mercury = "0.3"
 ```
 
 ```rust
@@ -24,16 +24,37 @@ for segment in &transcript.segments {
 }
 ```
 
-Per-word timings, when you need them:
+The WhisperX layer, when you need it:
 
 ```rust
-let opts = AsrOptions { word_timestamps: true, ..Default::default() };
+let opts = AsrOptions {
+    word_timestamps: true,          // per-word times, CTC forced alignment
+    diarize: true,                  // speaker turns
+    ..Default::default()            // speech segmentation is already on
+};
 let transcript = engine.transcribe(&audio, &opts)?;
 
 for word in transcript.words.iter().flatten() {
     println!("{:6.2}–{:6.2}  {}", word.start, word.end, word.value);
 }
+for turn in transcript.speakers.iter().flatten() {
+    println!("{:6.2}–{:6.2}  {}", turn.start, turn.end, turn.value);  // SPEAKER_00…
+}
 ```
+
+Or from the CLI:
+
+```sh
+ffai asr -i meeting.wav -o meeting.json --word-timestamps --diarize
+```
+
+| Stage | Model fetched | Gate |
+|---|---|---|
+| segmentation *(default on)* | none — energy VAD | silence corpus, **8/8 empty** |
+| `word_timestamps` | wav2vec2-base-960h, Apache-2.0 | containment **100 %**, 1105 words |
+| `diarize` | ECAPA-TDNN, Apache-2.0 | **DER 4.21 %** |
+
+The opt-in stages are lazy: without the flag their models are not fetched, not read, and not resident.
 
 Weights are fetched into a local cache from hash-verified manifests on first
 use — never vendored, and each model's own licence is surfaced at selection
@@ -96,26 +117,45 @@ with the full methodology — including every reverted experiment — in
 
 - Whisper `tiny.en` and `base.en`, greedy decoding with the full logit-filter
   grammar (suppression lists, timestamp rules, temperature fallback).
-- **Voice activity detection, on by default** — speech-shaped windows instead
-  of a fixed 30 s grid. `AsrOptions { vad: false, .. }` restores the grid.
-- **Word-level timestamps** (`word_timestamps: true`) via CTC forced
-  alignment against a wav2vec2 acoustic model, ported to candle.
+- **The complete WhisperX layer** — segmentation, word-level timestamps by
+  CTC forced alignment, and speaker diarization — all in candle, all behind
+  ungated Apache-2.0 weights.
 - A **no-speech gate**: silence yields an empty transcript rather than the
   `you` that Whisper hallucinates into it.
 - Non-speech events annotated (`[Laughs]`, `(coughs)`) as whisper.cpp does;
   `DecodeConfig::suppress_non_speech` restores openai-whisper's behaviour.
-- Segment-level timestamps, SRT / WebVTT (with inline word timing tags) /
-  JSON output.
+- SRT / WebVTT (inline word-timing tags) / JSON carrying words and speakers.
 - int8 and f16 decoder variants (`whisper-candle-q8_0`) — memory, not speed.
+
+## Three things measurement taught us
+
+**Segmentation is on for speed, not quality.** 2.2–4.2× on audio with trailing
+silence at a byte-identical transcript. It also moves corpus WER, and that is
+*not* a quality win — 38 improved / 38 worsened across 400 clips, sign test
+z = 0.00. Set `vad: false` for the fixed 30 s grid.
+
+**`max_speakers` is not the safe option.** Blind clustering scores **4.21 %
+DER** against **5.00 %** with the true speaker count supplied. Forcing a count
+forces a merge, and a bad merge attributes one speaker's words to another.
+Supply it when it is certain, not as insurance.
+
+**Licences shaped this.** WhisperX's diarization uses pyannote weights that
+are MIT-licensed *and gated* — permission granted, access behind a browser
+click. Mercury uses SpeechBrain's ECAPA-TDNN instead: Apache-2.0 and ungated.
+Every model Mercury fetches is fetchable without an account.
 
 ## What does not, yet
 
 - **TTS.** The `TtsEngine` trait exists; Kokoro-82M is the first target.
-- **Diarization** — speaker labels, the last of the WhisperX layer.
 - **Beam search**, all model sizes above `base`, streaming API.
-- **Word timestamps are English-only** and the alignment model is verified on
-  one clip's output, not yet against the reference implementation's emissions
-  over a corpus. Treat the timings as good, not as gospel.
+- **Word timestamps are English-only.** The alignment model is per-language.
+- **Word-level timing is gated at utterance granularity**, not milliseconds —
+  words are proven to land in the right utterance across a 185 s multi-window
+  file, not that a boundary is accurate to 50 ms. Finer needs a reference
+  aligner.
+- **The diarization corpus has no speaker overlap** and no natural
+  turn-taking. It gates *regression*, not *readiness*: a system can score
+  4.21 % there and do worse on a real meeting.
 
 See the [FFai roadmap](https://github.com/Remade-With-Rust/FFai/blob/master/ROADMAP.md)
 and the [Mercury-X plan](https://github.com/Remade-With-Rust/FFai/blob/master/docs/mercury-X-mission.md)
