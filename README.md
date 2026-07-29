@@ -8,7 +8,7 @@ toolkit. Part of [Remade With Rust](https://github.com/Remade-With-Rust).
 
 ```toml
 [dependencies]
-ffai-mercury = "0.3"
+ffai-mercury = "0.4"
 ```
 
 ```rust
@@ -53,8 +53,25 @@ ffai asr -i meeting.wav -o meeting.json --word-timestamps --diarize
 | segmentation *(default on)* | none — energy VAD | silence corpus, **8/8 empty** |
 | `word_timestamps` | wav2vec2-base-960h, Apache-2.0 | containment **100 %**, 1105 words |
 | `diarize` | ECAPA-TDNN, Apache-2.0 | **DER 4.21 %** |
+| `persist_speakers` | — | streaming **DER 5.68 %** |
 
 The opt-in stages are lazy: without the flag their models are not fetched, not read, and not resident.
+
+### Streaming: labels that survive the next chunk
+
+Diarization labels are, by convention, arbitrary names for clusters *within one call* — `SPEAKER_00` in two separate calls need not be the same person. Fine for a file; useless for a live stream, where the same voice gets renamed every chunk.
+
+```rust
+let opts = AsrOptions { diarize: true, persist_speakers: true, ..Default::default() };
+
+for chunk in microphone_chunks {
+    let t = engine.transcribe(&chunk, &opts)?;   // SPEAKER_00 is the same
+    // …                                          // person in every chunk
+}
+engine.reset_speakers();                          // new recording, new people
+```
+
+Conversations fed as 8 s chunks, DER scored over the whole concatenated timeline: **53.58 % without it, 5.68 % with it.** Matching is deliberately stricter than in-call clustering — a registry merge is permanent, and two people who share a centroid stay merged for the rest of the session.
 
 Weights are fetched into a local cache from hash-verified manifests on first
 use — never vendored, and each model's own licence is surfaced at selection
