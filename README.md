@@ -130,6 +130,23 @@ Every number above traces to a line in the
 with the full methodology — including every reverted experiment — in
 [docs/whys/](https://github.com/Remade-With-Rust/FFai/tree/master/docs/whys).
 
+## See it run
+
+The [FFai repo](https://github.com/Remade-With-Rust/FFAI) carries a live
+side-by-side demo: speak into a microphone and read Mercury and whisper.cpp
+transcribing the *same* audio, in real time, in two panes.
+
+```sh
+git clone https://github.com/Remade-With-Rust/FFAI && cd FFAI
+cargo run --release -p ffai-demo     # then open http://127.0.0.1:8787
+```
+
+Three things are visible there that a WER table cannot show. Silence produces
+**nothing** from Mercury while whisper.cpp prints `[BLANK_AUDIO]`. Speaker
+labels appear inline and **hold steady across chunks** — stop talking, let
+someone else speak, come back, and your original label returns. And on
+ordinary speech the two panes agree word for word, which is the point.
+
 ## What works today
 
 - Whisper `tiny.en` and `base.en`, greedy decoding with the full logit-filter
