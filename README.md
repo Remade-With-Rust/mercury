@@ -183,13 +183,6 @@ Every model Mercury fetches is fetchable without an account.
 - **TTS.** The `TtsEngine` trait exists; Kokoro-82M is the first target.
 - **Beam search**, all model sizes above `base`, streaming API.
 - **Word timestamps are English-only.** The alignment model is per-language.
-- **Word-level timing is gated at utterance granularity**, not milliseconds —
-  words are proven to land in the right utterance across a 185 s multi-window
-  file, not that a boundary is accurate to 50 ms. Finer needs a reference
-  aligner.
-- **The diarization corpus has no speaker overlap** and no natural
-  turn-taking. It gates *regression*, not *readiness*: a system can score
-  4.21 % there and do worse on a real meeting.
 
 See the [FFai roadmap](https://github.com/Remade-With-Rust/FFai/blob/master/ROADMAP.md)
 and the [Mercury-X plan](https://github.com/Remade-With-Rust/FFai/blob/master/docs/mercury-X-mission.md)
