@@ -150,7 +150,29 @@ whisper.cpp on **every** stage: encode ~2.0×, decode 1.1–1.2×, mel 1.4×,
 sampling 1.7–2.0×.
 
 Read the WER column as line-ball rather than a win: ahead by 0.31 pp on clean,
-behind by 0.07 pp on noisy.
+behind by 0.07 pp on noisy. And read a corpus WER delta below ~0.3 pp as
+nothing at all — rebuilding this code with no behavioural change moves the
+aggregate ±0.2–0.3 pp on this machine, which is why per-clip paired counts,
+not corpus deltas, decide whether a change ships.
+
+**Long-form, where the day's other work landed:** on a 465 s multi-utterance
+corpus Mercury reads **6.89 % WER, down from 10.55 %** — a 35 % relative
+improvement, and the one number here that is a genuine quality win rather than
+a wash. It came with a diagnosed mechanism instead of a moved average: whole
+utterances were being swallowed behind segment timestamps whose spans their own
+word counts could not justify, so the coverage-repair pass now discounts a span
+a speaker could not plausibly have filled. whisper.cpp still reads **6.47 %**
+on the same corpus, so **the long-form quality gate FAILS and the run is not
+claimable** — the residual is one failure class that span-level accounting
+cannot see, an utterance absorbed between two abutting, individually plausible
+segments. The named fix is word-level coverage through the CTC aligner already
+in the crate. Four clips is a small corpus and the number is reported as such.
+
+Two levers were built to close that last 0.42 pp and both measured *worse* — a
+lower repair threshold, and narrower decode windows, which came out worse and
+slower at every width tried. They are recorded rather than retried, alongside
+three other refutations from the same campaign, in
+[whys/adaptive-context.md](https://github.com/Remade-With-Rust/FFai/blob/master/docs/whys/adaptive-context.md).
 
 **And here is the asterisk, because it belongs next to the numbers rather than
 at the bottom of a page.** Speech segmentation is on by default, which
@@ -300,6 +322,9 @@ model Mercury fetches is fetchable without an account.
   `rhasspy/piper-voices` family.
 - **TTS synthesis speed** trails Piper on a fair line, with the two remaining
   kernels named and measured.
+- **Long-form ASR still trails whisper.cpp** by 0.42 pp on a 465 s corpus,
+  from one diagnosed failure class — an utterance absorbed between two
+  abutting segments — with word-level coverage named as the fix.
 - **Beam search**, all ASR model sizes above `base`, multilingual ASR and
   language detection.
 - **Word timestamps are English-only.** The alignment model is per-language.
