@@ -1,6 +1,6 @@
 # Mercury
 
-**Embedded speech recognition *and synthesis* in pure Rust.** Reimagined from Whisper.cpp & WhisperX with no Python runtime, no C/C++ by default — and now text-to-speech reimagined from Piper, with no GPL. Built for streaming AI multi-media from edge, browser, and embedded applications with low memory and compute requirements.
+**Embedded speech recognition (ASR) *and* text-to-speech (TTS) in pure Rust.** Reimagined from Whisper.cpp & WhisperX with no Python runtime, no C/C++ by default — and now text-to-speech reimagined from Piper, with no GPL. Built for streaming AI multi-media from edge, browser, and embedded applications with low memory and compute requirements.
 
 Mercury is the voice component of [FFai](https://github.com/Remade-With-Rust/FFai),
 published as a standalone crate so you can use speech without the rest of the
