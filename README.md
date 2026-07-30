@@ -99,8 +99,10 @@ ffai tts -o out.wav --seed 42 "Same seed, same bytes."
 `piper-candle` is the full **VITS** stack on candle — text encoder with
 relative-position attention, stochastic duration predictor with spline flows,
 residual coupling flow, HiFi-GAN vocoder — running the **same voice files**
-[Piper](https://github.com/OHF-Voice/piper1-gpl) runs, converted locally from
-the voice's own `.onnx`.
+[Piper](https://github.com/OHF-Voice/piper1-gpl) runs — fetched from the
+public, ungated `rhasspy/piper-voices` and read straight from ONNX by our own
+pure-Rust reader. No conversion step, no Python, no ONNX runtime:
+`ffai models --fetch piper-vits-lessac-medium` is the whole setup.
 
 | Option | Effect |
 |---|---|
@@ -210,7 +212,7 @@ hash-pinned 200-sentence Harvard corpus, 134 holdout, same voice
 both implementations are deterministic functions of the same phoneme ids, so
 every stage is pinned against onnxruntime's own intermediates: text encoder to
 **4e-6**, per-phoneme durations **integer-exact**, end-to-end waveform to
-**3e-5**.
+**3e-5**. The pure-Rust ONNX reader that replaced the Python converter is-identical to it — 350 tensors, 15.65 M floats, 132 convolution and the audio itself, all exact — so it inherits that oracle by rather than by re-argument.
 
 **Quality is parity, and the instrument is why that is the honest word.**
 Round-trip WER means synthesize the corpus, transcribe it with a *frozen
