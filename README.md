@@ -268,6 +268,11 @@ labels appear inline and **hold steady across chunks** — stop talking, let
 someone else speak, come back, and your original label returns. And on
 ordinary speech the two panes agree word for word, which is the point.
 
+The **Speak** tab does the same for synthesis: type anything, hear it back, and
+see the phonemes our G2P produced, where the sentence split landed, and a
+*Speak twice* button that renders the same input twice and compares a SHA-256
+of the samples — determinism made checkable rather than claimed.
+
 ## What works today
 
 **Recognition**
