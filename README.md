@@ -8,7 +8,7 @@ toolkit. Part of [Remade With Rust](https://github.com/Remade-With-Rust).
 
 ```toml
 [dependencies]
-ffai-mercury = "0.4"
+ffai-mercury = "0.6"
 ```
 
 ## Speech → text
@@ -151,6 +151,23 @@ decode back to the full context. Function by function, Mercury is now ahead of
 whisper.cpp on **every** stage: encode ~2.0×, decode 1.1–1.2×, mel 1.4×,
 sampling 1.7–2.0×.
 
+**Accuracy is a dial, not a fixed point.** tiny.en's WER is Whisper's, not
+Mercury's — so the lever is model size, and it moves a long way:
+**6.39 % → 5.16 % → 3.05 %** for tiny → base → small on test-clean, at
+19.9 → 8.3 → 4.2 ×realtime. At **matched size** — the comparison that prices
+the implementation rather than the weights — Mercury leads on both axes:
+**3.05 % WER / 0.88 % CER at 4.2 ×RT** against whisper.cpp small.en's
+3.38 % / 1.16 % at 3.7 ×RT. Per clip that is 16 better, 8 worse, 176 tied
+(z = +1.63), under our |z| > 2 bar — so *ahead, not yet significant*, and
+written that way.
+
+**Beam search** ships too (`beam_size: 5`), which is what the reference
+implementations run by default. Pooled across both holdouts it is a genuine
+improvement over greedy — WER 44 improved / 24 worsened, **z = +2.43**; CER
+z = +2.32 — worth 0.6–0.75 pp at roughly 5× the cost. Greedy remains Mercury's
+default because every benchmark here pins the references to greedy, so the
+comparison measures implementations rather than decoding strategies.
+
 Read the WER column as line-ball rather than a win: ahead by 0.31 pp on clean,
 behind by 0.07 pp on noisy. And read a corpus WER delta below ~0.3 pp as
 nothing at all — rebuilding this code with no behavioural change moves the
@@ -205,46 +222,76 @@ hash-pinned 200-sentence Harvard corpus, 134 holdout, same voice
 
 | | round-trip WER % | ×realtime (warm) | steady MiB | load s |
 |---|---:|---:|---:|---:|
-| **Mercury** (Rust) | **5.91**, byte-stable | 19–20 | **172–208** | **0.26–0.35** |
-| piper1-gpl | 4.8–6.5, one draw per run | **25–32** | 217–240 | 1.8–2.6 |
+| **Mercury** (Rust) | **5.49** (4.99–6.10 across seeds) | 19.3–21.2 | 214 | **0.64** |
+| piper1-gpl | **5.27** (4.8–6.5 across runs) | 11.2–23.0 | 217 | 6.69 |
+
+Both columns are ranges on purpose — see *"one draw is not a number"* below.
+The single figure that is measured on **both engines simultaneously**, and so
+survives the variance: **1.58× faster wall-clock while using 5 % less total
+CPU.**
 
 **Correctness is oracle-exact against Piper's own runtime.** At zero noise
 both implementations are deterministic functions of the same phoneme ids, so
 every stage is pinned against onnxruntime's own intermediates: text encoder to
 **4e-6**, per-phoneme durations **integer-exact**, end-to-end waveform to
-**3e-5**. The pure-Rust ONNX reader that replaced the Python converter is-identical to it — 350 tensors, 15.65 M floats, 132 convolution and the audio itself, all exact — so it inherits that oracle by rather than by re-argument.
+**3e-5**. The pure-Rust ONNX reader that replaced the Python converter is
+**byte-identical** to it — 350 tensors, 15.65 M floats, 132 convolution
+geometries and the audio itself, all exact — so it inherits that oracle by
+construction rather than by re-argument.
 
 **Quality is parity, and the instrument is why that is the honest word.**
 Round-trip WER means synthesize the corpus, transcribe it with a *frozen
 third-party* ASR — whisper.cpp, pinned, never Mercury's own engine, because
 self-grading is not measurement — and score the transcript against the input
-text. Mercury reads **5.91 % on every run**. Piper samples its noise inside
-the ONNX graph with no seed control, so it cannot repeat a number: across
-runs it has drawn anywhere in **4.8–6.5 %**, and the harness therefore scores
-it as the mean of independent draws with the range recorded in the ledger
-line. Our number sits inside its distribution. That supports *parity through
-this instrument* — not superiority, and we will not write superiority until an
-instrument can carry it.
+text. Mercury reads **5.49 %** against piper's **5.27 %** on the same holdout,
+same judge, same run.
+
+**One draw is not a number, for either engine.** Piper samples its noise inside
+the ONNX graph with no seed control, so it cannot repeat a run: it has drawn
+anywhere in **4.8–6.5 %**, and the harness has always scored it as the mean of
+independent draws. Mercury is seeded and byte-stable, so it would otherwise
+report a single fixed draw *forever* — and our own seed-to-seed spread turns
+out to be **1.11 pp** (4.99–6.10 %), several times larger than any recent
+engine change. Comparing one fixed draw against a mean was never a comparison;
+both engines are now scored the same way, with the shipped default seed
+reported beside the distribution it came from.
 
 **Determinism is a capability, not a detail.** Same text, same seed,
 byte-identical WAV — verified at both the library and the file-hash level.
 Piper structurally cannot offer it. Testing, caching, and byte-identical A/B
-gating all hang off that property, and it is why the WER column above has one
-number instead of a range.
+gating all hang off that property.
 
-**Speed is behind, closing, and not claimable.** Synthesis went from 3.2×
-realtime at bring-up to 19–20× warm across five profiled campaigns —
-cache-blocked and quad-packed AVX2 convolution kernels, phase-decomposed
-upsamplers, a flat decoder that never round-trips through tensors, a
-GEMM-shaped coupling flow with vectorized-exp gates. Nine attempts were
-measured, refuted, and reverted along the way; all nine are in the plan beside
-the wins. Function by function against Piper's own runtime, Mercury's
-**upsamplers and duration predictor are ~1.9× faster** and the text encoder is
-at parity — the remaining gap lives in two convolution kernels whose targets
-are measured, not guessed. The speed gate reads FAIL on every fair ledger
-line, and three machine-compromised lines (two that flattered Piper, one that
-flattered Mercury) are explicitly disowned in the plan with reading
-instructions.
+**Speed: ahead, on a reference that will not hold still.** Recent ledger lines
+read **19.3–21.2× realtime warm against piper's 11.2–23.0×**, and **load 0.64 s
+against 6.69 s**. But piper's own throughput spans **4.5×–29× across the
+ledger's TTS lines** on this machine — wider than any difference between the
+two engines — so single-run ratios are not a claim, and the four gates have
+flipped pass/fail on *its* variance rather than ours. What does survive is the
+simultaneous measurement: **1.58× faster wall at 5 % less CPU**, and footprint
+at parity.
+
+**Per stage, Mercury is within ~2.5 points of share on all four** — text
+encoder, duration predictor, coupling flow, decoder. Getting there required
+correcting the instrument twice. onnxruntime's own profiler slows it
+**1.75–1.93×** with a per-node tax that is not uniform; correcting for that
+drove one stage to a *negative* time, which is how the error was caught. The
+reference is now timed by cutting its graph into cumulative prefixes and
+running each unprofiled, and **every per-stage figure published before that
+correction is withdrawn** — including an earlier claim here that Mercury's
+upsamplers and duration predictor were ~1.9× faster with the text encoder at
+parity. The truth was the reverse: the decoder and flow were already
+competitive while the text encoder and duration predictor were ~2.9× behind.
+Both are now closed.
+
+The kernels that closed them, all gated byte-for-byte or on the stage oracle: a
+k=3 im2col+GEMM convolution path that beats candle's `conv1d` wrapper **1.5×**
+(the wrapper walks its im2col element by element and performs a full extra
+output transpose), a fused LayerNorm in one pass instead of nine allocating
+tensor ops, an Abramowitz–Stegun GELU, and a parallel relative-attention row
+grid that is bit-identical to the serial one. Levers that were built and
+measured *worse* — spline-column parallelism, decoder scratch reuse, P-core
+pinning, a flat feed-forward path — are recorded with their numbers rather than
+quietly dropped.
 
 Every number above traces to a line in the
 [claims ledger](https://github.com/Remade-With-Rust/FFai/blob/master/bench/ledger.jsonl).
