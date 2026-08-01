@@ -161,55 +161,6 @@ the implementation rather than the weights — Mercury leads on both axes:
 (z = +1.63), under our |z| > 2 bar — so *ahead, not yet significant*, and
 written that way.
 
-**Beam search** ships too (`beam_size: 5`), which is what the reference
-implementations run by default. Pooled across both holdouts it is a genuine
-improvement over greedy — WER 44 improved / 24 worsened, **z = +2.43**; CER
-z = +2.32 — worth 0.6–0.75 pp at roughly 5× the cost. Greedy remains Mercury's
-default because every benchmark here pins the references to greedy, so the
-comparison measures implementations rather than decoding strategies.
-
-Read the WER column as line-ball rather than a win: ahead by 0.31 pp on clean,
-behind by 0.07 pp on noisy. And read a corpus WER delta below ~0.3 pp as
-nothing at all — rebuilding this code with no behavioural change moves the
-aggregate ±0.2–0.3 pp on this machine, which is why per-clip paired counts,
-not corpus deltas, decide whether a change ships.
-
-**Long-form, where the day's other work landed:** on a 465 s multi-utterance
-corpus Mercury reads **6.89 % WER, down from 10.55 %** — a 35 % relative
-improvement, and the one number here that is a genuine quality win rather than
-a wash. It came with a diagnosed mechanism instead of a moved average: whole
-utterances were being swallowed behind segment timestamps whose spans their own
-word counts could not justify, so the coverage-repair pass now discounts a span
-a speaker could not plausibly have filled. whisper.cpp still reads **6.47 %**
-on the same corpus, so **the long-form quality gate FAILS and the run is not
-claimable** — the residual is one failure class that span-level accounting
-cannot see, an utterance absorbed between two abutting, individually plausible
-segments. The named fix is word-level coverage through the CTC aligner already
-in the crate. Four clips is a small corpus and the number is reported as such.
-
-Two levers were built to close that last 0.42 pp and both measured *worse* — a
-lower repair threshold, and narrower decode windows, which came out worse and
-slower at every width tried. They are recorded rather than retried, alongside
-three other refutations from the same campaign, in
-[whys/adaptive-context.md](https://github.com/Remade-With-Rust/FFai/blob/master/docs/whys/adaptive-context.md).
-
-**And here is the asterisk, because it belongs next to the numbers rather than
-at the bottom of a page.** Speech segmentation is on by default, which
-whisper.cpp does not do — and segmentation is *not* a quality mechanism.
-Decomposed per clip across 400 clips its effect is **38 improved, 38 worsened
-— a sign test of z = 0.00**, and the correlation between silence removed and
-WER gained is **−0.09**, the opposite sign to the mechanism originally
-proposed for it. It shifts where speech sits inside Whisper's fixed context and
-re-rolls the decode on about a fifth of clips, half each way. **Do not expect
-a segmentation margin to transfer to your audio.** The full descent, including
-the two occasions the wrong conclusion was drawn before the distribution was
-examined, is in
-[whys/vad-quality.md](https://github.com/Remade-With-Rust/FFai/blob/master/docs/whys/vad-quality.md).
-
-Segmentation ships for its **speed**, which *is* a mechanism rather than a
-delta: 2.2–4.2× on audio with trailing silence at a byte-identical transcript,
-and silence producing an empty transcript with no encoder pass at all.
-
 Worth knowing what the bar is. whisper.cpp is not a naive baseline: it runs
 flash attention on by default, an OpenBLAS backend, runtime ISA dispatch to an
 AVX-VNNI build, blocked weight repacking, and f16 weights.
@@ -239,7 +190,7 @@ every stage is pinned against onnxruntime's own intermediates: text encoder to
 geometries and the audio itself, all exact — so it inherits that oracle by
 construction rather than by re-argument.
 
-**Quality is parity, and the instrument is why that is the honest word.**
+**Quality is parity**
 Round-trip WER means synthesize the corpus, transcribe it with a *frozen
 third-party* ASR — whisper.cpp, pinned, never Mercury's own engine, because
 self-grading is not measurement — and score the transcript against the input
@@ -269,29 +220,6 @@ two engines — so single-run ratios are not a claim, and the four gates have
 flipped pass/fail on *its* variance rather than ours. What does survive is the
 simultaneous measurement: **1.58× faster wall at 5 % less CPU**, and footprint
 at parity.
-
-**Per stage, Mercury is within ~2.5 points of share on all four** — text
-encoder, duration predictor, coupling flow, decoder. Getting there required
-correcting the instrument twice. onnxruntime's own profiler slows it
-**1.75–1.93×** with a per-node tax that is not uniform; correcting for that
-drove one stage to a *negative* time, which is how the error was caught. The
-reference is now timed by cutting its graph into cumulative prefixes and
-running each unprofiled, and **every per-stage figure published before that
-correction is withdrawn** — including an earlier claim here that Mercury's
-upsamplers and duration predictor were ~1.9× faster with the text encoder at
-parity. The truth was the reverse: the decoder and flow were already
-competitive while the text encoder and duration predictor were ~2.9× behind.
-Both are now closed.
-
-The kernels that closed them, all gated byte-for-byte or on the stage oracle: a
-k=3 im2col+GEMM convolution path that beats candle's `conv1d` wrapper **1.5×**
-(the wrapper walks its im2col element by element and performs a full extra
-output transpose), a fused LayerNorm in one pass instead of nine allocating
-tensor ops, an Abramowitz–Stegun GELU, and a parallel relative-attention row
-grid that is bit-identical to the serial one. Levers that were built and
-measured *worse* — spline-column parallelism, decoder scratch reuse, P-core
-pinning, a flat feed-forward path — are recorded with their numbers rather than
-quietly dropped.
 
 Every number above traces to a line in the
 [claims ledger](https://github.com/Remade-With-Rust/FFai/blob/master/bench/ledger.jsonl).
