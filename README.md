@@ -125,12 +125,6 @@ out-of-process test oracle** over pinned corpora, and nothing GPL is linked,
 vendored, or shipped. The honest cost, stated rather than buried: **en-US
 only** for now, where Piper covers 40+ languages.
 
-That boundary is measured, not asserted. The **substitution gate** feeds
-*our* phonemes through *Piper's own runtime* and scores the resulting audio
-against espeak's phonemes through the same runtime — synthesis held constant,
-so the difference prices the phonemizer and nothing else. It passes inside the
-5 % relative band.
-
 ## Where it stands
 
 ### Speech recognition
@@ -152,16 +146,6 @@ actually present rather than always 30 s, with guards that escalate a suspect
 decode back to the full context. Function by function, Mercury is now ahead of
 whisper.cpp on **every** stage: encode ~2.0×, decode 1.1–1.2×, mel 1.4×,
 sampling 1.7–2.0×.
-
-**Accuracy is a dial, not a fixed point.** tiny.en's WER is Whisper's, not
-Mercury's — so the lever is model size, and it moves a long way:
-**6.39 % → 5.16 % → 3.05 %** for tiny → base → small on test-clean, at
-19.9 → 8.3 → 4.2 ×realtime. At **matched size** — the comparison that prices
-the implementation rather than the weights — Mercury leads on both axes:
-**3.05 % WER / 0.88 % CER at 4.2 ×RT** against whisper.cpp small.en's
-3.38 % / 1.16 % at 3.7 ×RT. Per clip that is 16 better, 8 worse, 176 tied
-(z = +1.63), under our |z| > 2 bar — so *ahead, not yet significant*, and
-written that way.
 
 Worth knowing what the bar is. whisper.cpp is not a naive baseline: it runs
 flash attention on by default, an OpenBLAS backend, runtime ISA dispatch to an
@@ -198,21 +182,6 @@ third-party* ASR — whisper.cpp, pinned, never Mercury's own engine, because
 self-grading is not measurement — and score the transcript against the input
 text. Mercury reads **5.49 %** against piper's **5.27 %** on the same holdout,
 same judge, same run.
-
-**One draw is not a number, for either engine.** Piper samples its noise inside
-the ONNX graph with no seed control, so it cannot repeat a run: it has drawn
-anywhere in **4.8–6.5 %**, and the harness has always scored it as the mean of
-independent draws. Mercury is seeded and byte-stable, so it would otherwise
-report a single fixed draw *forever* — and our own seed-to-seed spread turns
-out to be **1.11 pp** (4.99–6.10 %), several times larger than any recent
-engine change. Comparing one fixed draw against a mean was never a comparison;
-both engines are now scored the same way, with the shipped default seed
-reported beside the distribution it came from.
-
-**Determinism is a capability, not a detail.** Same text, same seed,
-byte-identical WAV — verified at both the library and the file-hash level.
-Piper structurally cannot offer it. Testing, caching, and byte-identical A/B
-gating all hang off that property.
 
 **Speed: ahead, on a reference that will not hold still.** Recent ledger lines
 read **19.3–21.2× realtime warm against piper's 11.2–23.0×**, and **load 0.64 s
