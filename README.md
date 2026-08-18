@@ -297,6 +297,26 @@ for sequencing.
 | [`ffai-media`](https://crates.io/crates/ffai-media) | audio ingest/egress |
 | [`ffai-bench`](https://crates.io/crates/ffai-bench) | the analyzer: four-gate verdicts, best-of-N timing, pinned corpora, claims ledger |
 
+## Security: model files are trusted input
+
+Mercury **does not validate model files**. Weights, ONNX graphs, JSON configs and lexicons
+are read from the model cache and parsed on the assumption that they came from a trusted
+source — and safetensors are memory-mapped, which is undefined behaviour if the file is
+modified while it is mapped.
+
+That assumption is deliberate, and it is why release builds do not carry
+`overflow-checks`: the protection exists for parsing attacker-controlled input, it costs
+~6% of synthesis throughput (~10% in the decoder), and it buys nothing against a threat
+this project does not accept.
+
+**What it asks of you**: treat the model cache directory as security-relevant. Restrict
+write access to it, install voices only from sources you trust, and do not point Mercury
+at a cache that other users or untrusted processes can write to. If your deployment cannot
+guarantee that, rebuild with `overflow-checks = true`.
+
+Full threat model and the audit behind this decision:
+[FFai/crates/ffai-mercury/docs/threat-model.md](https://github.com/Remade-With-Rust/FFAI/blob/hardening/mercury-audit/crates/ffai-mercury/docs/threat-model.md).
+
 ## Licence
 
 MIT OR Apache-2.0 (code). Model weights carry their own licences — surfaced at
