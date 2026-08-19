@@ -359,5 +359,5 @@ one before commercial use.
 |---|--:|:--|
 | GDPR / PII | 8 / 8 | ✅ |
 
-**Audit Design by** — [Nick Overlock](https://www.linkedin.com/in/nick-overlock-593235b9/)
+**Audit Design v0.7.2 by** — [Nick Overlock](https://www.linkedin.com/in/nick-overlock-593235b9/)
 <!-- HARDENING-TABLE:END -->
