@@ -359,5 +359,5 @@ one before commercial use.
 |---|--:|:--|
 | GDPR / PII | 8 / 8 | ✅ |
 
-**Architect** — [Nick Overlock](https://www.linkedin.com/in/nick-overlock-593235b9/)
+**Audited By** — [Nick Overlock](https://www.linkedin.com/in/nick-overlock-593235b9/)
 <!-- HARDENING-TABLE:END -->
